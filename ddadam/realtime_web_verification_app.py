@@ -12,9 +12,6 @@ import io
 import zipfile
 from playwright.async_api import async_playwright
 import time
-import subprocess
-import sys
-import os
 
 # ページ設定
 st.set_page_config(
@@ -27,20 +24,6 @@ class RealtimeJBAVerificationSystem:
     def __init__(self):
         self.jba_data = {}
         self.session_data = None
-        self._ensure_playwright_browsers()
-    
-    def _ensure_playwright_browsers(self):
-        """Playwrightブラウザがインストールされているか確認し、必要に応じてインストール"""
-        try:
-            # ブラウザのインストール確認
-            result = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], 
-                                  capture_output=True, text=True, timeout=300)
-            if result.returncode == 0:
-                st.success("✅ Playwrightブラウザが正常にインストールされました")
-            else:
-                st.warning("⚠️ Playwrightブラウザのインストールに問題がありました")
-        except Exception as e:
-            st.error(f"❌ Playwrightブラウザのインストールエラー: {str(e)}")
         
     async def login_to_jba(self, email, password):
         """JBAサイトにログイン"""
@@ -96,7 +79,18 @@ class RealtimeJBAVerificationSystem:
         """大学名でチームを検索"""
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-accelerated-2d-canvas',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--disable-gpu'
+                    ]
+                )
                 context = await browser.new_context()
                 
                 # セッション情報を復元
@@ -146,7 +140,18 @@ class RealtimeJBAVerificationSystem:
         """チームの選手・スタッフ情報を取得"""
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-accelerated-2d-canvas',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--disable-gpu'
+                    ]
+                )
                 context = await browser.new_context()
                 
                 # セッション情報を復元
