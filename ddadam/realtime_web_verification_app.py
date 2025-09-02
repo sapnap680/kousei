@@ -687,7 +687,7 @@ def main():
                 with col4:
                     st.metric("複数候補", multiple_count, f"{multiple_count/total_records*100:.1f}%" if total_records > 0 else "0%")
             
-                         with tab2:
+            with tab2:
                  st.subheader("✅ マッチした選手")
                  for file_name, df in corrected_files.items():
                      matched_df = df[df['照合結果'] == 'マッチ']
