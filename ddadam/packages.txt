@@ -1,0 +1,7 @@
+# Playwrightブラウザの依存関係
+chromium-browser
+chromium-chromedriver
+
+# Selenium用の依存関係
+google-chrome-stable
+chromedriver

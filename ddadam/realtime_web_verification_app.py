@@ -24,12 +24,30 @@ class RealtimeJBAVerificationSystem:
     def __init__(self):
         self.jba_data = {}
         self.session_data = None
+        self._ensure_playwright_browsers()
+    
+    def _ensure_playwright_browsers(self):
+        """Playwrightブラウザがインストールされているか確認し、必要に応じてインストール"""
+        try:
+            import subprocess
+            import sys
+            import os
+            
+            # ブラウザのインストール確認
+            result = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], 
+                                  capture_output=True, text=True, timeout=300)
+            if result.returncode == 0:
+                st.success("✅ Playwrightブラウザが正常にインストールされました")
+            else:
+                st.warning("⚠️ Playwrightブラウザのインストールに問題がありました")
+        except Exception as e:
+            st.warning(f"⚠️ Playwrightブラウザのインストールをスキップしました: {str(e)}")
         
     async def login_to_jba(self, email, password):
         """JBAサイトにログイン"""
         try:
             async with async_playwright() as p:
-                # ブラウザ起動オプションを追加
+                # ブラウザ起動オプションを追加（Streamlit Cloud対応）
                 browser = await p.chromium.launch(
                     headless=True,
                     args=[
@@ -39,8 +57,11 @@ class RealtimeJBAVerificationSystem:
                         '--disable-accelerated-2d-canvas',
                         '--no-first-run',
                         '--no-zygote',
-                        '--disable-gpu'
-                    ]
+                        '--disable-gpu',
+                        '--disable-web-security',
+                        '--disable-features=VizDisplayCompositor'
+                    ],
+                    executable_path=None  # システムのChromiumを使用
                 )
                 context = await browser.new_context()
                 page = await context.new_page()
@@ -73,6 +94,7 @@ class RealtimeJBAVerificationSystem:
 
         except Exception as e:
             st.error(f"ログインエラー: {str(e)}")
+            st.error("Playwrightブラウザのインストールが必要です。ページを再読み込みしてください。")
             return False
     
     async def search_team_by_university(self, university_name):
@@ -88,8 +110,11 @@ class RealtimeJBAVerificationSystem:
                         '--disable-accelerated-2d-canvas',
                         '--no-first-run',
                         '--no-zygote',
-                        '--disable-gpu'
-                    ]
+                        '--disable-gpu',
+                        '--disable-web-security',
+                        '--disable-features=VizDisplayCompositor'
+                    ],
+                    executable_path=None  # システムのChromiumを使用
                 )
                 context = await browser.new_context()
                 
@@ -149,8 +174,11 @@ class RealtimeJBAVerificationSystem:
                         '--disable-accelerated-2d-canvas',
                         '--no-first-run',
                         '--no-zygote',
-                        '--disable-gpu'
-                    ]
+                        '--disable-gpu',
+                        '--disable-web-security',
+                        '--disable-features=VizDisplayCompositor'
+                    ],
+                    executable_path=None  # システムのChromiumを使用
                 )
                 context = await browser.new_context()
                 
