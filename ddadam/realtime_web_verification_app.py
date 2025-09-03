@@ -55,15 +55,32 @@ class RealtimeJBAVerificationSystem:
             import sys
             import os
             
-            # ブラウザのインストール確認
-            result = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], 
-                                  capture_output=True, text=True, timeout=300)
-            if result.returncode == 0:
+            st.info("🔧 Playwrightブラウザのインストールを開始します...")
+            
+            # 1. 依存関係をインストール
+            st.info("📦 システム依存関係をインストール中...")
+            deps_result = subprocess.run([sys.executable, "-m", "playwright", "install-deps", "chromium"], 
+                                       capture_output=True, text=True, timeout=600)
+            
+            if deps_result.returncode == 0:
+                st.success("✅ システム依存関係のインストール完了")
+            else:
+                st.warning("⚠️ システム依存関係のインストールに問題がありました")
+            
+            # 2. ブラウザをインストール
+            st.info("🌐 Chromiumブラウザをインストール中...")
+            browser_result = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], 
+                                          capture_output=True, text=True, timeout=600)
+            
+            if browser_result.returncode == 0:
                 st.success("✅ Playwrightブラウザが正常にインストールされました")
             else:
-                st.warning("⚠️ Playwrightブラウザのインストールに問題がありました")
+                st.error("❌ Playwrightブラウザのインストールに失敗しました")
+                st.error(f"エラー詳細: {browser_result.stderr}")
+                
         except Exception as e:
-            st.warning(f"⚠️ Playwrightブラウザのインストールをスキップしました: {str(e)}")
+            st.error(f"❌ Playwrightブラウザのインストールエラー: {str(e)}")
+            st.error("手動でインストールが必要です")
         
     async def login_to_jba(self, email, password):
         """JBAサイトにログイン"""
@@ -118,9 +135,15 @@ class RealtimeJBAVerificationSystem:
                     return False
 
         except Exception as e:
-            st.error(f"ログインエラー: {str(e)}")
-            st.error("Playwrightブラウザのインストールが必要です。ページを再読み込みしてください。")
-            return False
+            st.error(f"Playwrightログインエラー: {str(e)}")
+            st.info("requests + BeautifulSoupで代替ログインを試行中...")
+            
+            # Playwrightが失敗した場合、requests + BeautifulSoupを試す
+            if REQUESTS_AVAILABLE:
+                return self._login_with_requests(email, password)
+            else:
+                st.error("Playwrightブラウザのインストールが必要です。ページを再読み込みしてください。")
+                return False
     
     def _login_with_requests(self, email, password):
         """requests + BeautifulSoupを使用したJBAログイン"""
@@ -251,6 +274,30 @@ class RealtimeJBAVerificationSystem:
                 
                 page = await context.new_page()
                 
+                # 🔍 リクエスト傍受機能を追加
+                # 開発者ツールも有効化（デバッグ用）
+                if st.checkbox("🔧 開発者ツールを表示（デバッグ用）", value=False):
+                    context = await browser.new_context(devtools=True)
+                    page = await context.new_page()
+                st.info("🔍 検索時のリクエストを監視中...")
+                request_logs = []
+                response_logs = []
+                
+                # リクエストを傍受
+                page.on("request", lambda request: request_logs.append({
+                    "method": request.method,
+                    "url": request.url,
+                    "headers": request.headers,
+                    "post_data": request.post_data
+                }))
+                
+                # レスポンスを傍受
+                page.on("response", lambda response: response_logs.append({
+                    "status": response.status,
+                    "url": response.url,
+                    "headers": response.headers
+                }))
+                
                 # チーム検索ページにアクセス
                 await page.goto("https://team-jba.jp/organization/15250600/team/search")
                 await page.wait_for_load_state("networkidle")
@@ -282,6 +329,41 @@ class RealtimeJBAVerificationSystem:
                         team_urls.append(href)
                 
                 await browser.close()
+                
+                # 🔍 リクエストログを表示
+                st.subheader("🔍 検索時のリクエストログ")
+                
+                if request_logs:
+                    st.write("**リクエスト一覧:**")
+                    for i, req in enumerate(request_logs):
+                        with st.expander(f"リクエスト {i+1}: {req['method']} {req['url']}"):
+                            st.json(req)
+                else:
+                    st.info("リクエストが記録されませんでした")
+                
+                if response_logs:
+                    st.write("**レスポンス一覧:**")
+                    for i, res in enumerate(response_logs):
+                        with st.expander(f"レスポンス {i+1}: {res['status']} {res['url']}"):
+                            st.json(res)
+                else:
+                    st.info("レスポンスが記録されませんでした")
+                
+                # APIエンドポイントの候補を特定
+                api_candidates = []
+                for req in request_logs:
+                    if req['method'] == 'POST' and ('search' in req['url'].lower() or 'api' in req['url'].lower()):
+                        api_candidates.append(req)
+                
+                if api_candidates:
+                    st.success("🎯 APIエンドポイントの候補を発見しました！")
+                    for candidate in api_candidates:
+                        st.write(f"**候補:** {candidate['method']} {candidate['url']}")
+                        if candidate['post_data']:
+                            st.write(f"**POSTデータ:** {candidate['post_data']}")
+                else:
+                    st.warning("⚠️ APIエンドポイントの候補が見つかりませんでした")
+                
                 return team_urls
                 
         except Exception as e:
@@ -392,6 +474,82 @@ class RealtimeJBAVerificationSystem:
             
         except Exception as e:
             st.error(f"requestsチーム検索エラー: {str(e)}")
+            return []
+    
+    def _search_team_with_api(self, university_name, api_endpoint=None):
+        """APIを使用したチーム検索（新機能）"""
+        try:
+            if not self.session_data or "session" not in self.session_data:
+                st.error("セッション情報がありません。先にログインしてください。")
+                return []
+            
+            session = self.session_data["session"]
+            
+            # APIエンドポイントが指定されていない場合は、デフォルトの検索URLを使用
+            if not api_endpoint:
+                api_endpoint = "https://team-jba.jp/organization/15250600/team/search"
+            
+            # 検索データを準備
+            search_data = {
+                'fiscal_year': '2025',
+                'team_gender_id[]': '1',  # 男子
+                'team_name': university_name
+            }
+            
+            # CSRFトークンを探す（必要に応じて）
+            try:
+                search_page = session.get(api_endpoint)
+                soup = BeautifulSoup(search_page.content, 'html.parser')
+                csrf_input = soup.find('input', {'name': '_token'}) or soup.find('input', {'name': 'csrf_token'})
+                if csrf_input:
+                    search_data['_token'] = csrf_input.get('value', '')
+            except:
+                pass
+            
+            # APIリクエストを送信
+            st.info(f"🔍 APIエンドポイントに検索リクエストを送信中: {api_endpoint}")
+            search_response = session.post(api_endpoint, data=search_data)
+            
+            # レスポンスの形式を判定
+            content_type = search_response.headers.get('content-type', '')
+            
+            if 'application/json' in content_type:
+                # JSONレスポンスの場合
+                search_results = search_response.json()
+                st.success("✅ JSONレスポンスを受信しました")
+                
+                # JSONからチームURLを抽出（構造に応じて調整が必要）
+                team_urls = []
+                if 'teams' in search_results:
+                    for team in search_results['teams']:
+                        if 'url' in team:
+                            team_urls.append(team['url'])
+                elif 'data' in search_results:
+                    for team in search_results['data']:
+                        if 'team_url' in team:
+                            team_urls.append(team['team_url'])
+                
+                return team_urls
+                
+            else:
+                # HTMLレスポンスの場合（従来の方法）
+                st.info("📄 HTMLレスポンスを受信しました")
+                search_soup = BeautifulSoup(search_response.content, 'html.parser')
+                
+                # 検索結果からチームリンクを取得
+                team_links = search_soup.find_all('a', href=True)
+                team_urls = []
+                
+                for link in team_links:
+                    href = link.get('href')
+                    text = link.get_text(strip=True)
+                    if href and university_name in text and '/team/' in href:
+                        team_urls.append(href)
+                
+                return team_urls
+            
+        except Exception as e:
+            st.error(f"API検索エラー: {str(e)}")
             return []
     
     async def get_team_members(self, team_url):
