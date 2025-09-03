@@ -1049,29 +1049,29 @@ def main():
                 with col4:
                     st.metric("複数候補", multiple_count, f"{multiple_count/total_records*100:.1f}%" if total_records > 0 else "0%")
             
-                         with tab2:
-                 st.subheader("✅ マッチした選手")
-                 for file_name, df in corrected_files.items():
-                     matched_df = df[df['照合結果'] == 'マッチ']
-                     if not matched_df.empty:
-                         st.write(f"**{file_name}**")
-                         st.dataframe(matched_df[['元データ', 'JBA正解', '類似度', '修正提案']])
-             
-             with tab3:
-                 st.subheader("❌ 未マッチの選手")
-                 for file_name, df in corrected_files.items():
-                     unmatched_df = df[df['照合結果'] == '未マッチ']
-                     if not unmatched_df.empty:
-                         st.write(f"**{file_name}**")
-                         st.dataframe(unmatched_df[['元データ', 'JBA正解', '詳細分析']])
-             
-             with tab4:
-                 st.subheader("⚠️ 複数候補がある選手")
-                 for file_name, df in corrected_files.items():
-                     multiple_df = df[df['照合結果'] == '複数候補']
-                     if not multiple_df.empty:
-                         st.write(f"**{file_name}**")
-                         st.dataframe(multiple_df[['元データ', 'JBA正解', '類似度', '詳細分析']])
+            with tab2:
+                st.subheader("✅ マッチした選手")
+                for file_name, df in corrected_files.items():
+                    matched_df = df[df['照合結果'] == 'マッチ']
+                    if not matched_df.empty:
+                        st.write(f"**{file_name}**")
+                        st.dataframe(matched_df[['元データ', 'JBA正解', '類似度', '修正提案']])
+            
+            with tab3:
+                st.subheader("❌ 未マッチの選手")
+                for file_name, df in corrected_files.items():
+                    unmatched_df = df[df['照合結果'] == '未マッチ']
+                    if not unmatched_df.empty:
+                        st.write(f"**{file_name}**")
+                        st.dataframe(unmatched_df[['元データ', 'JBA正解', '詳細分析']])
+            
+            with tab4:
+                st.subheader("⚠️ 複数候補がある選手")
+                for file_name, df in corrected_files.items():
+                    multiple_df = df[df['照合結果'] == '複数候補']
+                    if not multiple_df.empty:
+                        st.write(f"**{file_name}**")
+                        st.dataframe(multiple_df[['元データ', 'JBA正解', '類似度', '詳細分析']])
             
             # ダウンロードボタン
             st.subheader("📥 修正版エクセルファイルをダウンロード")
