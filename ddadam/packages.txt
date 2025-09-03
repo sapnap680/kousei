@@ -1,7 +1,24 @@
-# Playwrightブラウザの依存関係
+# Playwrightの必須システム依存関係
 chromium-browser
-chromium-chromedriver
-
-# Selenium用の依存関係
-google-chrome-stable
-chromedriver
+libnspr4
+libnss3
+libatk1.0-0
+libatk-bridge2.0-0
+libatspi2.0-0
+libxcomposite1
+libxdamage1
+libxfixes3
+libxrandr2
+libgbm1
+libxkbcommon0
+libasound2
+libdrm2
+libxss1
+libgtk-3-0
+libgdk-pixbuf2.0-0
+libpango-1.0-0
+libcairo2
+libpangocairo-1.0-0
+libepoxy0
+libharfbuzz0b
+libpangoft2-1.0-0
