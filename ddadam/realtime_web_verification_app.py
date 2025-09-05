@@ -148,49 +148,211 @@ class RealtimeJBAVerificationSystem:
     def _login_with_requests(self, email, password):
         """requests + BeautifulSoupを使用したJBAログイン"""
         try:
+            st.info("🔍 JBAログイン処理を開始します...")
+            
             # セッションを作成
             session = requests.Session()
             session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
             })
             
-            # ログインページにアクセスしてCSRFトークンを取得
+            # 1. ログインページにアクセス
+            st.info("📄 ログインページにアクセス中...")
             login_page = session.get("https://team-jba.jp/login")
+            st.info(f"ログインページステータス: {login_page.status_code}")
+            
+            # ログインページの内容を確認
             soup = BeautifulSoup(login_page.content, 'html.parser')
             
-            # CSRFトークンを探す（サイトの構造に応じて調整が必要）
+            # 2. フォーム要素を調査
+            st.info("🔍 ログインフォームを調査中...")
+            form = soup.find('form')
+            if form:
+                st.info(f"フォームのaction: {form.get('action', 'N/A')}")
+                st.info(f"フォームのmethod: {form.get('method', 'N/A')}")
+            else:
+                st.warning("⚠️ ログインフォームが見つかりません")
+            
+            # 3. 入力フィールドを調査
+            email_input = soup.find('input', {'name': 'login_id'}) or soup.find('input', {'name': 'email'}) or soup.find('input', {'type': 'email'})
+            password_input = soup.find('input', {'name': 'password'}) or soup.find('input', {'type': 'password'})
+            
+            if email_input:
+                st.info(f"メール入力フィールド: {email_input.get('name', 'N/A')}")
+            else:
+                st.warning("⚠️ メール入力フィールドが見つかりません")
+                
+            if password_input:
+                st.info(f"パスワード入力フィールド: {password_input.get('name', 'N/A')}")
+            else:
+                st.warning("⚠️ パスワード入力フィールドが見つかりません")
+            
+            # 4. CSRFトークンを探す
+            st.info("🔐 CSRFトークンを調査中...")
             csrf_token = ""
-            csrf_input = soup.find('input', {'name': '_token'}) or soup.find('input', {'name': 'csrf_token'})
+            csrf_input = soup.find('input', {'name': '_token'}) or soup.find('input', {'name': 'csrf_token'}) or soup.find('input', {'name': 'token'})
             if csrf_input:
                 csrf_token = csrf_input.get('value', '')
+                st.info(f"CSRFトークン発見: {csrf_token[:20]}...")
+            else:
+                st.info("CSRFトークンは見つかりませんでした")
             
-            # ログインデータを準備
-            login_data = {
-                'login_id': email,
-                'password': password
-            }
+            # 5. ログインデータを準備
+            login_data = {}
+            if email_input:
+                login_data[email_input.get('name')] = email
+            if password_input:
+                login_data[password_input.get('name')] = password
             if csrf_token:
                 login_data['_token'] = csrf_token
             
-            # ログインリクエストを送信
-            login_response = session.post("https://team-jba.jp/login", data=login_data)
+            st.info(f"ログインデータ: {login_data}")
             
-            # ログイン成功確認
-            if "ログアウト" in login_response.text or "マイページ" in login_response.text:
+            # 6. ログインリクエストを送信
+            login_url = "https://team-jba.jp/login"
+            if form and form.get('action'):
+                login_url = form.get('action')
+                if not login_url.startswith('http'):
+                    login_url = "https://team-jba.jp" + login_url
+            
+            st.info(f"ログインリクエストを送信中: {login_url}")
+            login_response = session.post(login_url, data=login_data)
+            st.info(f"ログインレスポンスステータス: {login_response.status_code}")
+            
+            # 7. ログイン成功確認
+            st.info("🔍 ログイン結果を確認中...")
+            
+            # レスポンスの内容を確認
+            response_soup = BeautifulSoup(login_response.content, 'html.parser')
+            
+            # 成功の指標を複数チェック
+            success_indicators = [
+                "ログアウト" in login_response.text,
+                "マイページ" in login_response.text,
+                "ログインしました" in login_response.text,
+                "ようこそ" in login_response.text,
+                "dashboard" in login_response.url.lower(),
+                "mypage" in login_response.url.lower()
+            ]
+            
+            if any(success_indicators):
+                st.success("✅ ログイン成功の指標を確認しました")
+                
                 # セッション情報を保存
                 self.session_data = {
                     "session": session,
                     "cookies": session.cookies.get_dict(),
                     "user_agent": session.headers.get('User-Agent', '')
                 }
+                
                 st.success("✅ requests + BeautifulSoupでログイン成功")
                 return True
             else:
-                st.error("ログインに失敗しました。認証情報を確認してください。")
+                st.error("❌ ログインに失敗しました")
+                
+                # エラーメッセージを探す
+                error_messages = response_soup.find_all(text=re.compile(r'エラー|失敗|無効|認証', re.IGNORECASE))
+                if error_messages:
+                    st.error(f"エラーメッセージ: {error_messages}")
+                
+                            # デバッグ用にレスポンスの一部を表示
+            with st.expander("🔍 ログインレスポンスの詳細"):
+                st.text(login_response.text[:1000])
+            
+            # ログインページの構造も詳しく調査
+            with st.expander("🔍 ログインページの構造詳細"):
+                st.write("**HTMLの構造:**")
+                st.code(str(soup.prettify()[:2000]), language='html')
+                
+                st.write("**フォーム要素:**")
+                forms = soup.find_all('form')
+                for i, f in enumerate(forms):
+                    st.write(f"フォーム {i+1}: action={f.get('action', 'N/A')}, method={f.get('method', 'N/A')}")
+                    inputs = f.find_all('input')
+                    for inp in inputs:
+                        st.write(f"  - {inp.get('name', 'N/A')}: type={inp.get('type', 'N/A')}, value={inp.get('value', 'N/A')}")
+                
                 return False
                 
         except Exception as e:
             st.error(f"requestsログインエラー: {str(e)}")
+            st.error(f"エラーの詳細: {type(e).__name__}")
+            import traceback
+            st.error(f"トレースバック: {traceback.format_exc()}")
+            
+            # 代替ログイン方法を試行
+            st.info("🔄 代替ログイン方法を試行中...")
+            return self._try_alternative_login(email, password)
+    
+    def _try_alternative_login(self, email, password):
+        """代替ログイン方法を試行"""
+        try:
+            st.info("🔍 代替ログイン方法1: 直接POSTリクエスト")
+            
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Referer': 'https://team-jba.jp/login',
+                'Origin': 'https://team-jba.jp'
+            })
+            
+            # 複数の可能性のあるログインエンドポイントを試行
+            login_endpoints = [
+                "https://team-jba.jp/login",
+                "https://team-jba.jp/auth/login",
+                "https://team-jba.jp/api/login",
+                "https://team-jba.jp/user/login"
+            ]
+            
+            for endpoint in login_endpoints:
+                st.info(f"🔍 エンドポイントを試行中: {endpoint}")
+                
+                try:
+                    # まずGETでページを取得
+                    page_response = session.get(endpoint)
+                    if page_response.status_code == 200:
+                        st.info(f"✅ {endpoint} にアクセス成功")
+                        
+                        # ログインを試行
+                        login_data = {
+                            'login_id': email,
+                            'password': password,
+                            'email': email,
+                            'username': email
+                        }
+                        
+                        login_response = session.post(endpoint, data=login_data)
+                        
+                        if any(indicator in login_response.text for indicator in ["ログアウト", "マイページ", "ようこそ"]):
+                            st.success(f"✅ {endpoint} でログイン成功！")
+                            
+                            self.session_data = {
+                                "session": session,
+                                "cookies": session.cookies.get_dict(),
+                                "user_agent": session.headers.get('User-Agent', '')
+                            }
+                            
+                            return True
+                        else:
+                            st.warning(f"⚠️ {endpoint} でログイン失敗")
+                    else:
+                        st.warning(f"⚠️ {endpoint} にアクセス不可: {page_response.status_code}")
+                        
+                except Exception as e:
+                    st.warning(f"⚠️ {endpoint} でエラー: {str(e)}")
+                    continue
+            
+            st.error("❌ すべての代替ログイン方法が失敗しました")
+            return False
+            
+        except Exception as e:
+            st.error(f"代替ログインエラー: {str(e)}")
             return False
     
     def _login_with_selenium(self, email, password):
@@ -1207,29 +1369,29 @@ def main():
                 with col4:
                     st.metric("複数候補", multiple_count, f"{multiple_count/total_records*100:.1f}%" if total_records > 0 else "0%")
             
-            with tab2:
-                st.subheader("✅ マッチした選手")
-                for file_name, df in corrected_files.items():
-                    matched_df = df[df['照合結果'] == 'マッチ']
-                    if not matched_df.empty:
-                        st.write(f"**{file_name}**")
-                        st.dataframe(matched_df[['元データ', 'JBA正解', '類似度', '修正提案']])
-            
-            with tab3:
-                st.subheader("❌ 未マッチの選手")
-                for file_name, df in corrected_files.items():
-                    unmatched_df = df[df['照合結果'] == '未マッチ']
-                    if not unmatched_df.empty:
-                        st.write(f"**{file_name}**")
-                        st.dataframe(unmatched_df[['元データ', 'JBA正解', '詳細分析']])
-            
-            with tab4:
-                st.subheader("⚠️ 複数候補がある選手")
-                for file_name, df in corrected_files.items():
-                    multiple_df = df[df['照合結果'] == '複数候補']
-                    if not multiple_df.empty:
-                        st.write(f"**{file_name}**")
-                        st.dataframe(multiple_df[['元データ', 'JBA正解', '類似度', '詳細分析']])
+                         with tab2:
+                 st.subheader("✅ マッチした選手")
+                 for file_name, df in corrected_files.items():
+                     matched_df = df[df['照合結果'] == 'マッチ']
+                     if not matched_df.empty:
+                         st.write(f"**{file_name}**")
+                         st.dataframe(matched_df[['元データ', 'JBA正解', '類似度', '修正提案']])
+             
+             with tab3:
+                 st.subheader("❌ 未マッチの選手")
+                 for file_name, df in corrected_files.items():
+                     unmatched_df = df[df['照合結果'] == '未マッチ']
+                     if not unmatched_df.empty:
+                         st.write(f"**{file_name}**")
+                         st.dataframe(unmatched_df[['元データ', 'JBA正解', '詳細分析']])
+             
+             with tab4:
+                 st.subheader("⚠️ 複数候補がある選手")
+                 for file_name, df in corrected_files.items():
+                     multiple_df = df[df['照合結果'] == '複数候補']
+                     if not multiple_df.empty:
+                         st.write(f"**{file_name}**")
+                         st.dataframe(multiple_df[['元データ', 'JBA正解', '類似度', '詳細分析']])
             
             # ダウンロードボタン
             st.subheader("📥 修正版エクセルファイルをダウンロード")
