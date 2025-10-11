@@ -27,7 +27,6 @@ const venues = [
 const maxDistance = 500;
 
 const specialStampNumbers = [3, 7, 12, 22];
-const giftNumbers = [1, 2, 3, 4]; // ギフト1個目、2個目、3個目、4個目
 const adminPassword = "3557";
 
 const stampDateRestrictions: { [key: number]: { end: string } } = {
@@ -68,46 +67,43 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 };
 
 
-// チームロゴ紙吹雪演出
-const showLogoConfetti = () => {
-	const confettiDiv = document.createElement("div");
-	confettiDiv.className = "confetti";
+// フェス風：中央から弾け飛ぶ演出
+const showLogoBurst = () => {
+	const container = document.createElement('div');
+	container.style.position = 'fixed';
+	container.style.inset = '0';
+	container.style.overflow = 'hidden';
+	container.style.pointerEvents = 'none';
+	container.style.zIndex = '2000';
 
-	const logos = [
-		"/team_logos/1.png",      // 筑波大学
-		"/team_logos/2.png",      // 白鷗大学
-		"/team_logos/3.png",       // 明治大学
-		"/team_logos/4.png",      // 日本体育大学
-		"/team_logos/5.png",      // 専修大学
-		"/team_logos/6.png",       // 東海大学
-		"/team_logos/7.png",      // 青山学院大学
-		"/team_logos/8.png",       // 大東文化大学
-		"/team_logos/9.png",      // 立教大学
-		"/team_logos/10.png",    // 駒澤大学
-		"/team_logos/11.png",   // 神奈川大学
-		"/team_logos/12.png",     // AUTUMN LEAGUE
-	];
+	const logos = Array.from({ length: 12 }, (_, i) => `/team_logos/${i + 1}.png`);
 
-	for (let i = 0; i < 25; i++) {
-		const img = document.createElement("img");
+	for (let i = 0; i < 20; i++) {
+		const img = document.createElement('img');
 		img.src = logos[Math.floor(Math.random() * logos.length)];
-		img.className = "logo-confetti-piece";
+		img.style.position = 'absolute';
+		img.style.left = '50%';
+		img.style.top = '50%';
+		img.style.width = Math.random() * 60 + 40 + "px";
+		img.style.opacity = "0.95";
+		img.style.transition = "transform 1.5s ease-out, opacity 1.5s ease-out";
+		img.style.filter = "brightness(1.1) contrast(1.05)";
 		
-		// ✅ サイズを大きく、滞空時間を短く（速く落下）
-		img.style.width = Math.random() * 70 + 60 + "px"; // 60〜130px
-		img.style.animationDuration = (Math.random() * 2 + 3) + "s"; // 3〜5秒（速く落下）
-		img.style.animationDelay = (Math.random() * 2) + "s";
-		img.style.opacity = "0.95"; // ✅ ほぼ不透明（はっきり見える）
-		
-		// 位置のばらつき
-		img.style.left = Math.random() * 100 + "vw";
-		img.style.filter = "brightness(1.1) contrast(1.05)"; // ✅ 色を濃く・明るく補正
-		
-		confettiDiv.appendChild(img);
+		const angle = Math.random() * 2 * Math.PI;
+		const distance = 200 + Math.random() * 200;
+		const dx = Math.cos(angle) * distance;
+		const dy = Math.sin(angle) * distance;
+
+		requestAnimationFrame(() => {
+			img.style.transform = `translate(${dx}px, ${dy}px) rotate(${Math.random()*720-360}deg)`;
+			img.style.opacity = "0";
+		});
+
+		container.appendChild(img);
 	}
 
-	document.body.appendChild(confettiDiv);
-	setTimeout(() => confettiDiv.remove(), 6000); // ✅ 6秒後に削除
+	document.body.appendChild(container);
+	setTimeout(() => container.remove(), 2000);
 };
 
 declare global {
@@ -139,50 +135,82 @@ export default function StampRallyPage() {
 	const [liffError, setLiffError] = useState("");
 	const [profile, setProfile] = useState<any>(null);
 	const [liffReady, setLiffReady] = useState(false);
-	// Firestore同期
-	const [syncing, setSyncing] = useState(false);
 
 	// 景品確認用
 	const [currentPrizeNumber, setCurrentPrizeNumber] = useState<number | null>(null);
 
 	// 履歴の折りたたみ
 	const [historyOpen, setHistoryOpen] = useState(false);
-	const [scheduleOpen, setScheduleOpen] = useState(false);
 
 	// 受取済み景品のトラッキング
 	const [claimedPrizeNumbers, setClaimedPrizeNumbers] = useState<number[]>([]);
 	
-	// 特別スタンプ演出用
-	const [specialStampEffect, setSpecialStampEffect] = useState<number | null>(null);
 	
 	// ギフト受け取りUI用
 	const [slideReady, setSlideReady] = useState(false);
 	const [sliding, setSliding] = useState(false);
+	const [slidePosition, setSlidePosition] = useState(0);
+	const slideBarRef = useRef<HTMLDivElement>(null);
 	
+	// スライド移動処理
+	const handleSlideMove = (e: React.MouseEvent | React.TouchEvent) => {
+		if (!sliding || !slideBarRef.current) return;
+		const rect = slideBarRef.current.getBoundingClientRect();
+		const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+		const newPos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+		setSlidePosition(newPos);
+	};
+
 	// スライド完了処理
 	const handleSlideEnd = async () => {
-		setSliding(false);
-		// ✅ 完了処理
-		if (currentPrizeNumber != null) {
-			setClaimedPrizeNumbers(prev => {
-				if (prev.includes(currentPrizeNumber!)) return prev;
-				const updated = [...prev, currentPrizeNumber!];
-				if (profile?.userId) {
-					const ref = doc(db, "stamp_rallies", profile.userId);
-					updateDoc(ref, { claimedPrizes: updated }).catch(() => {});
-				}
-				showLogoConfetti(); // 🎉 ロゴ紙吹雪演出
-				return updated;
-			});
+		if (slidePosition > 0.8) { // 80%以上スライドしたら完了
+			// ✅ 完了処理
+			if (currentPrizeNumber != null) {
+				setClaimedPrizeNumbers(prev => {
+					if (prev.includes(currentPrizeNumber!)) return prev;
+					const updated = [...prev, currentPrizeNumber!];
+					if (profile?.userId) {
+						const ref = doc(db, "stamp_rallies", profile.userId);
+						updateDoc(ref, { claimedPrizes: updated }).catch((err) => {
+							console.error("Firestore保存エラー:", err);
+							setOutputMessage("データの保存に失敗しました。もう一度お試しください。");
+						});
+					}
+					showLogoBurst(); // 🎉 フェス風演出
+					return updated;
+				});
+			}
+			setShowStaffConfirm(false);
+			setSlideReady(false);
+			setSlidePosition(0); // ✅ 完了後にリセット
+		} else {
+			setSlidePosition(0); // 戻す
 		}
-		setShowStaffConfirm(false);
-		setSlideReady(false);
+		setSliding(false);
 	};
 	
 	// 受取済み状態はFirestoreから管理（ローカルストレージ削除）
 
+	// 日本時間処理の関数化
+	const getJapanTime = () => {
+		const now = new Date();
+		return new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+	};
+
+	const formatJapanDate = (date: Date) => {
+		return date.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+	};
+
 	// 特別スタンプの判定を最適化
 	const specialStampSet = useMemo(() => new Set(specialStampNumbers), []);
+
+	// モーダル開閉時のリセット処理
+	useEffect(() => {
+		if (showStaffConfirm) {
+			setSlidePosition(0);
+			setSlideReady(false);
+		}
+	}, [showStaffConfirm]);
 
 	useEffect(() => {
 		if (!liffReady) return;
@@ -294,31 +322,6 @@ export default function StampRallyPage() {
 		loadFromFirestore();
 	}, [profile?.userId]);
 	
-	// オフラインで獲得したデータを一斉同期
-	async function syncOfflineData(localHistory: StampHistory[], firestoreHistory: StampHistory[]) {
-		if (!profile?.userId) return;
-		
-		try {
-			const ref = doc(db, "stamp_rallies", profile.userId);
-			
-			// ローカルにあってFirestoreにないデータを特定
-			const newEntries = localHistory.filter(local => 
-				!firestoreHistory.some(firestore => 
-					local.stampNumber === firestore.stampNumber &&
-					local.venueName === firestore.venueName &&
-					local.date === firestore.date
-				)
-			);
-			
-			if (newEntries.length > 0) {
-				// 一斉送信
-				await updateDoc(ref, { history: arrayUnion(...newEntries) });
-				// オフラインデータ同期完了
-			}
-		} catch (err) {
-			// エラーハンドリング
-		}
-	}
 
 	useEffect(() => {
 		if (!profile) return;
@@ -338,36 +341,32 @@ export default function StampRallyPage() {
 			return;
 		}
 		
-		// Firestoreベースの重複チェック
-		// まずFirestoreから最新の履歴を取得して重複チェック
+		// ✅ 最初に1回だけFirestoreから読み込む
+		let firestoreHistory: StampHistory[] = [];
 		try {
 			if (profile?.userId) {
 				const ref = doc(db, "stamp_rallies", profile.userId);
 				const snap = await getDoc(ref);
 				if (snap.exists()) {
-					const firestoreData = snap.data() as { history?: StampHistory[] };
-					if (firestoreData.history) {
-						// QRコードの重複チェック（同じQRを2回読み取れないように）
-						const alreadyScanned = firestoreData.history.some((h: any) => h.qrId === qrValue);
-						if (alreadyScanned) {
-							setOutputMessage(`スタンプ${qrStampNumber}は既に獲得済みです`);
-							return;
-						}
-					}
+					const data = snap.data() as { history?: StampHistory[] };
+					firestoreHistory = data.history || [];
 				}
 			}
 		} catch (err) {
-			// エラーの場合はローカルでチェック
-			const alreadyScanned = history.some((h: any) => h.qrId === qrValue);
-			if (alreadyScanned) {
-				setOutputMessage(`スタンプ${qrStampNumber}は既に獲得済みです`);
-				return;
-			}
+			console.error("Firestore読み込みエラー:", err);
+			firestoreHistory = history; // エラー時はローカルを使用
 		}
 		
+		// ✅ 重複チェック（取得済みの履歴を使う）
+		const alreadyScanned = firestoreHistory.some(h => h.qrId === qrValue);
+		if (alreadyScanned) {
+			setOutputMessage(`スタンプ${qrStampNumber}は既に獲得済みです`);
+			return;
+		}
+		
+		// 日付制限チェック
 		const restriction = stampDateRestrictions[qrStampNumber];
 		if (restriction) {
-			// 日本時間で現在の日付を取得
 			const now = new Date();
 			const japanDate = new Intl.DateTimeFormat('ja-JP', {
 				timeZone: 'Asia/Tokyo',
@@ -381,10 +380,13 @@ export default function StampRallyPage() {
 				return;
 			}
 		}
+		
 		setOutputMessage("位置情報を取得中...");
+		
 		try {
 			const pos = await getCurrentPosition();
 			const { latitude, longitude } = pos.coords;
+			
 			let closestVenue: { name: string; lat: number; lon: number } | null = null;
 			let minDistance = Infinity;
 			for (const venue of venues) {
@@ -394,62 +396,41 @@ export default function StampRallyPage() {
 					closestVenue = venue;
 				}
 			}
+			
 			if (!closestVenue || minDistance > maxDistance) {
 				setOutputMessage(`会場の近くにいません\n最寄り: ${closestVenue?.name}まで約${Math.round(minDistance)}m`);
 				return;
 			}
 			
-			if (stampedNumbers.length >= 22) {
+			if (firestoreHistory.length >= 22) {
 				setOutputMessage("全て獲得済みです！");
 				return;
 			}
 			
-			// 日本時間で現在の日時を取得
-			const now = new Date();
-			const japanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-			const nowStr = japanTime.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+			// ✅ 既に取得した履歴でスタンプ番号を計算（2回目の読み込み不要）
+			const nextStampNumber = firestoreHistory.length + 1;
+			const japanTime = getJapanTime();
+			const nowStr = formatJapanDate(japanTime);
 			
-			// Firestoreから最新の履歴を取得して、新しいスタンプを追加
-			let currentHistory: StampHistory[] = history;
-			let currentStampedNumbers: number[] = stampedNumbers;
-			
-			try {
-				if (profile?.userId) {
-					const ref = doc(db, "stamp_rallies", profile.userId);
-					const snap = await getDoc(ref);
-					if (snap.exists()) {
-						const firestoreData = snap.data() as { history?: StampHistory[] };
-						if (firestoreData.history) {
-							currentHistory = firestoreData.history;
-							currentStampedNumbers = firestoreData.history.map(h => h.stampNumber);
-						}
-					}
-				}
-			} catch (err) {
-				// エラーの場合はローカルのデータを使用
-			}
-			
-			// 押した順序でスタンプ番号を付与（現在の履歴の長さ + 1）
-			const nextStampNumber = currentHistory.length + 1;
-			const newEntry: StampHistory = { 
-				stampNumber: nextStampNumber, 
-				venueName: closestVenue.name, 
-				date: nowStr, 
+			const newEntry: StampHistory = {
+				stampNumber: nextStampNumber,
+				venueName: closestVenue.name,
+				date: nowStr,
 				source: `QR / ${prof.displayName || "ゲスト"}`,
-				qrId: qrValue,  // QRコードのIDを保存
-				timestamp: japanTime  // JSTのDateオブジェクトを保存
+				qrId: qrValue,
+				timestamp: japanTime
 			};
 			
-			// 最新の履歴に新しいスタンプを追加
-			const updatedHistory = [...currentHistory, newEntry];
-			const updatedStampedNumbers = [...currentStampedNumbers, nextStampNumber];
+			// UIの更新
+			const updatedHistory = [...firestoreHistory, newEntry];
+			const updatedStampedNumbers = updatedHistory.map(h => h.stampNumber);
 			
 			setStampedNumbers(updatedStampedNumbers);
 			setHistory(updatedHistory);
 			
-			// 特別スタンプの演出（押した順序のスタンプ番号で判定）
+			// 特別スタンプの演出
 			if (specialStampNumbers.includes(nextStampNumber)) {
-				showLogoConfetti();
+				showLogoBurst();
 			}
 
 			// Firestoreへ追記
@@ -464,8 +445,10 @@ export default function StampRallyPage() {
 					}
 				}
 			} catch (err) {
-				// エラーハンドリング
+				console.error("Firestore保存エラー:", err);
+				setOutputMessage("データの保存に失敗しました。もう一度お試しください。");
 			}
+			
 			setOutputMessage(`スタンプ${nextStampNumber}を獲得！\n（会場: ${closestVenue.name}）`);
 
 		} catch (e: any) {
@@ -805,6 +788,7 @@ export default function StampRallyPage() {
 				{/* 日程表ボタン - スタンプ22の右側 */}
 				<button 
 					className="schedule-btn-in-grid" 
+					aria-label="スタンプラリー日程を確認"
 					onClick={() => window.open('https://www.kcbbf.jp/index/show-pdf/url/aHR0cHM6Ly9kMmEwdjF4N3F2eGw2Yy5jbG91ZGZyb250Lm5ldC9maWxlcy9zcG9ocF9rY2JiZi9nYW1lX2NhdGVnb3J5LzY4OTMxYzEzMjk5ZmQucGRm', '_blank')}
 				>
 					📅
@@ -883,13 +867,25 @@ export default function StampRallyPage() {
 							<h3>この画面をスタッフにお見せください</h3>
 
 							<div
+								ref={slideBarRef}
 								className="slide-bar"
 								onMouseDown={() => setSliding(true)}
+								onMouseMove={handleSlideMove}
 								onMouseUp={handleSlideEnd}
+								onMouseLeave={handleSlideEnd}
 								onTouchStart={() => setSliding(true)}
+								onTouchMove={handleSlideMove}
 								onTouchEnd={handleSlideEnd}
 							>
-								<div className="slide-handle">➡ スライドで完了</div>
+								<div 
+									className="slide-handle"
+									style={{ 
+										left: `calc(${slidePosition * 100}% - ${slidePosition * 180}px)`,
+										transition: sliding ? 'none' : 'left 0.3s ease'
+									}}
+								>
+									➡ スライドで完了
+								</div>
 							</div>
 						</div>
 					)}
@@ -1171,10 +1167,7 @@ export default function StampRallyPage() {
 					cursor: grab;
 					position: absolute;
 					left: 0;
-					transition: left 0.3s ease;
-				}
-				.slide-bar:active .slide-handle {
-					left: calc(100% - 180px);
+					/* transition は JSX 側で動的に制御 */
 				}
 			`}</style>
 		</>
