@@ -93,9 +93,9 @@ const showLogoConfetti = () => {
 		img.src = logos[Math.floor(Math.random() * logos.length)];
 		img.className = "logo-confetti-piece";
 		
-		// ✅ サイズを大きく、滞空時間を長く
+		// ✅ サイズを大きく、滞空時間を短く（速く落下）
 		img.style.width = Math.random() * 70 + 60 + "px"; // 60〜130px
-		img.style.animationDuration = (Math.random() * 5 + 6) + "s"; // 6〜11秒
+		img.style.animationDuration = (Math.random() * 2 + 3) + "s"; // 3〜5秒（速く落下）
 		img.style.animationDelay = (Math.random() * 2) + "s";
 		img.style.opacity = "0.95"; // ✅ ほぼ不透明（はっきり見える）
 		
@@ -1022,6 +1022,32 @@ export default function StampRallyPage() {
 					100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
 				}
 				
+				/* 紙吹雪エフェクト */
+				.confetti {
+					position: fixed;
+					top: 0;
+					left: 0;
+					width: 100%;
+					height: 100%;
+					pointer-events: none;
+					z-index: 1000;
+				}
+				.confetti-piece {
+					position: absolute;
+					width: 8px;
+					height: 8px;
+					animation: confetti-fall 2s linear forwards;
+				}
+				@keyframes confetti-fall {
+					0% {
+						transform: translateY(-100vh) rotate(0deg);
+						opacity: 1;
+					}
+					100% {
+						transform: translateY(100vh) rotate(360deg);
+						opacity: 0;
+					}
+				}
 				
 				/* === ロゴ紙吹雪 === */
 				.logo-confetti-piece {
@@ -1075,18 +1101,15 @@ export default function StampRallyPage() {
 				
 				/* === ランダムロゴレイアウト === */
 				.logo-layout {
-					display: flex;
-					justify-content: space-between;
+					display: grid;
+					grid-template-columns: repeat(2, 1fr);
+					gap: 16px 12px;
+					justify-items: center;
 					align-items: center;
 					width: 100%;
-					gap: 10px;
-					flex-wrap: nowrap;
 				}
 				.logo-side {
-					display: flex;
-					flex-direction: column;
-					align-items: center;
-					gap: 12px;
+					display: contents; /* 子要素をgrid内に直接配置する扱いに */
 				}
 				.logo-center {
 					display: flex;
@@ -1094,6 +1117,7 @@ export default function StampRallyPage() {
 					align-items: center;
 					text-align: center;
 					gap: 10px;
+					grid-column: span 2; /* 中央ブロックを2列分使う */
 				}
 				.logo-center h2 {
 					margin-top: 10px;
@@ -1108,12 +1132,11 @@ export default function StampRallyPage() {
 				/* スマホ対応 */
 				@media (max-width: 600px) {
 					.logo-layout {
-						flex-direction: column;
+						grid-template-columns: repeat(3, 1fr);
+						gap: 10px;
 					}
-					.logo-side {
-						flex-direction: row;
-						flex-wrap: wrap;
-						justify-content: center;
+					.logo-center {
+						grid-column: span 3;
 					}
 				}
 				.go-to-slide {
