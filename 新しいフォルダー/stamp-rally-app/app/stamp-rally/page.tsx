@@ -24,7 +24,7 @@ const venues = [
 	{ name: "家", lat: 35.6584102, lon: 139.6084961 },
 	{ name: "学連事務所", lat: 35.6555607, lon: 139.6994733 },
 ];
-const maxDistance = 1000;
+const maxDistance = 500;
 
 const specialStampNumbers = [3, 7, 12, 22];
 const giftNumbers = [1, 2, 3, 4]; // ギフト1個目、2個目、3個目、4個目
@@ -112,14 +112,22 @@ const showLogoConfetti = () => {
 		const img = document.createElement("img");
 		img.src = logos[Math.floor(Math.random() * logos.length)];
 		img.className = "logo-confetti-piece";
+		
+		// ✅ サイズを大きく、滞空時間を長く
+		img.style.width = Math.random() * 70 + 60 + "px"; // 60〜130px
+		img.style.animationDuration = (Math.random() * 5 + 6) + "s"; // 6〜11秒
+		img.style.animationDelay = (Math.random() * 2) + "s";
+		img.style.opacity = "0.95"; // ✅ ほぼ不透明（はっきり見える）
+		
+		// 位置のばらつき
 		img.style.left = Math.random() * 100 + "vw";
-		img.style.animationDelay = (Math.random() * 0.8) + "s";
-		img.style.width = Math.random() * 40 + 30 + "px";
+		img.style.filter = "brightness(1.1) contrast(1.05)"; // ✅ 色を濃く・明るく補正
+		
 		confettiDiv.appendChild(img);
 	}
 
 	document.body.appendChild(confettiDiv);
-	setTimeout(() => confettiDiv.remove(), 6000);
+	setTimeout(() => confettiDiv.remove(), 12000); // ✅ 12秒後に削除（長め）
 };
 
 declare global {
@@ -848,10 +856,46 @@ export default function StampRallyPage() {
 				<div className="staff-confirm-fullscreen">
 					{!slideReady ? (
 						<div className="confirm-step1">
-							<Image src="/autumn_logo.png" alt="team logo" width={150} height={150} />
-							<h2>🎉 {staffPrize} を獲得！</h2>
-							<p>スタッフ確認の準備ができたら下のボタンを押してください。</p>
-							<button className="go-to-slide" onClick={() => setSlideReady(true)}>スタッフに見せる</button>
+							{(() => {
+								// 1〜12のロゴを配列で持つ
+								const allLogos = Array.from({ length: 12 }, (_, i) => `/team_logos/${i + 1}.png`);
+
+								// 配列をランダムシャッフル（Fisher–Yates法）
+								const shuffled = [...allLogos].sort(() => Math.random() - 0.5);
+
+								// 左右に6個ずつ分割
+								const leftLogos = shuffled.slice(0, 6);
+								const rightLogos = shuffled.slice(6, 12);
+
+								return (
+									<div className="logo-layout">
+										{/* 左側 */}
+										<div className="logo-side left">
+											{leftLogos.map((logo, idx) => (
+												<Image key={`L${idx}`} src={logo} alt="team logo" width={70} height={70} />
+											))}
+										</div>
+
+										{/* 中央ロゴ */}
+										<div className="logo-center">
+											<Image src="/autumn_logo.png" alt="main logo" width={180} height={180} />
+											<h2>🎉 {staffPrize} を獲得！</h2>
+											<p>スタッフ確認の準備ができたら下のボタンを押してください。</p>
+										</div>
+
+										{/* 右側 */}
+										<div className="logo-side right">
+											{rightLogos.map((logo, idx) => (
+												<Image key={`R${idx}`} src={logo} alt="team logo" width={70} height={70} />
+											))}
+										</div>
+									</div>
+								);
+							})()}
+
+							<button className="go-to-slide" onClick={() => setSlideReady(true)}>
+								スタッフに見せる
+							</button>
 						</div>
 					) : (
 						<div className="confirm-step2">
@@ -1028,14 +1072,31 @@ export default function StampRallyPage() {
 				/* === ロゴ紙吹雪 === */
 				.logo-confetti-piece {
 					position: absolute;
-					top: -10vh;
-					animation: logo-fall 3.8s linear forwards;
+					top: -15vh;
+					animation: logo-fall 8s ease-in-out forwards;
 					transform: rotate(0deg);
+					opacity: 0.95;
 					z-index: 999;
+					pointer-events: none; /* ✅ タップ無効化 */
 				}
 				@keyframes logo-fall {
-					0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
-					100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+					0% {
+						transform: translate(0, -20vh) rotate(0deg);
+						opacity: 1;
+					}
+					25% {
+						transform: translate(5vw, 25vh) rotate(180deg);
+					}
+					50% {
+						transform: translate(-5vw, 55vh) rotate(360deg);
+					}
+					75% {
+						transform: translate(8vw, 85vh) rotate(540deg);
+					}
+					100% {
+						transform: translate(-8vw, 120vh) rotate(720deg);
+						opacity: 0;
+					}
 				}
 
 				/* === スライド受け取りUI === */
@@ -1056,6 +1117,50 @@ export default function StampRallyPage() {
 					flex-direction: column;
 					align-items: center;
 					gap: 16px;
+				}
+				
+				/* === ランダムロゴレイアウト === */
+				.logo-layout {
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+					width: 100%;
+					gap: 10px;
+					flex-wrap: nowrap;
+				}
+				.logo-side {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					gap: 12px;
+				}
+				.logo-center {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					text-align: center;
+					gap: 10px;
+				}
+				.logo-center h2 {
+					margin-top: 10px;
+					font-size: 1.3em;
+					font-weight: bold;
+					color: #7a5b00;
+				}
+				.logo-center p {
+					font-size: 0.9em;
+					color: #555;
+				}
+				/* スマホ対応 */
+				@media (max-width: 600px) {
+					.logo-layout {
+						flex-direction: column;
+					}
+					.logo-side {
+						flex-direction: row;
+						flex-wrap: wrap;
+						justify-content: center;
+					}
 				}
 				.go-to-slide {
 					background: #ffd700;
@@ -1093,16 +1198,6 @@ export default function StampRallyPage() {
 				}
 				.slide-bar:active .slide-handle {
 					left: calc(100% - 180px);
-				}
-				.slide-bar.completed .slide-handle {
-					left: calc(100% - 180px);
-					background: #4caf50;
-					animation: slide-complete 0.5s ease-out;
-				}
-				@keyframes slide-complete {
-					0% { transform: scale(1); }
-					50% { transform: scale(1.1); }
-					100% { transform: scale(1); }
 				}
 			`}</style>
 		</>
