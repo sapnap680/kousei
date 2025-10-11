@@ -67,43 +67,44 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 
 
 // フェス風：中央から弾け飛ぶ演出
-const showLogoBurst = () => {
-	const container = document.createElement('div');
-	container.style.position = 'fixed';
-	container.style.inset = '0';
-	container.style.overflow = 'hidden';
-	container.style.pointerEvents = 'none';
-	container.style.zIndex = '2000';
+	const showLogoBurst = () => {
+		const container = document.createElement('div');
+		container.style.position = 'fixed';
+		container.style.inset = '0';
+		container.style.overflow = 'hidden';
+		container.style.pointerEvents = 'none';
+		container.style.zIndex = '2000';
 
-	const logos = Array.from({ length: 12 }, (_, i) => `/team_logos/${i + 1}.png`);
+		const logos = Array.from({ length: 12 }, (_, i) => `/team_logos/${i + 1}.png`);
 
-	for (let i = 0; i < 20; i++) {
-		const img = document.createElement('img');
-		img.src = logos[Math.floor(Math.random() * logos.length)];
-		img.style.position = 'absolute';
-		img.style.left = '50%';
-		img.style.top = '50%';
-		img.style.width = Math.random() * 60 + 40 + "px";
-		img.style.opacity = "0.95";
-		img.style.transition = "transform 1.5s ease-out, opacity 1.5s ease-out";
-		img.style.filter = "brightness(1.1) contrast(1.05)";
-		
-		const angle = Math.random() * 2 * Math.PI;
-		const distance = 200 + Math.random() * 200;
-		const dx = Math.cos(angle) * distance;
-		const dy = Math.sin(angle) * distance;
+		// ✅ 枚数アップ：70枚
+		for (let i = 0; i < 70; i++) {
+			const img = document.createElement('img');
+			img.src = logos[Math.floor(Math.random() * logos.length)];
+			img.style.position = 'absolute';
+			img.style.left = '50%';
+			img.style.top = '50%';
+			img.style.width = Math.random() * 50 + 40 + "px"; // 40〜90px
+			img.style.opacity = "0.95";
+			img.style.transition = "transform 3s ease-out, opacity 3s ease-out"; // ✅ 時間延長
+			img.style.filter = "brightness(1.1) contrast(1.05)";
+			
+			const angle = Math.random() * 2 * Math.PI;
+			const distance = 250 + Math.random() * 250; // 広がる範囲拡大
+			const dx = Math.cos(angle) * distance;
+			const dy = Math.sin(angle) * distance;
 
-		requestAnimationFrame(() => {
-			img.style.transform = `translate(${dx}px, ${dy}px) rotate(${Math.random()*720-360}deg)`;
-			img.style.opacity = "0";
-		});
+			requestAnimationFrame(() => {
+				img.style.transform = `translate(${dx}px, ${dy}px) rotate(${Math.random()*720-360}deg)`;
+				img.style.opacity = "0";
+			});
 
-		container.appendChild(img);
-	}
+			container.appendChild(img);
+		}
 
-	document.body.appendChild(container);
-	setTimeout(() => container.remove(), 2000);
-};
+		document.body.appendChild(container);
+		setTimeout(() => container.remove(), 4500); // ✅ 全体を長く
+	};
 
 declare global {
 	interface Window {
@@ -162,7 +163,7 @@ export default function StampRallyPage() {
 
 	// スライド完了処理
 	const handleSlideEnd = async () => {
-		if (slidePosition > 0.8) { // 80%以上スライドしたら完了
+		if (slidePosition > 0.5) { // 50%以上スライドしたら完了
 			// ✅ 完了処理
 			if (currentPrizeNumber != null) {
 				setClaimedPrizeNumbers(prev => {
