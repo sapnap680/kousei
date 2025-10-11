@@ -67,26 +67,6 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 	return R * c;
 };
 
-// 紙吹雪演出関数
-const showConfetti = () => {
-	const confettiDiv = document.createElement('div');
-	confettiDiv.className = 'confetti';
-	for (let i = 0; i < 30; i++) {
-		let piece = document.createElement('div');
-		piece.className = 'confetti-piece';
-		piece.style.left = Math.random() * 100 + "vw";
-		piece.style.animationDelay = (Math.random() * 0.8) + "s";
-		piece.style.background = [
-			'linear-gradient(135deg,#ffd700 70%,#fff 100%)',
-			'linear-gradient(135deg,#ff0055 60%,#fff 100%)',
-			'linear-gradient(135deg,#00c300 70%,#fff 90%)',
-			'linear-gradient(135deg,#a97b2c 85%,#fff 100%)'
-		][Math.floor(Math.random()*4)];
-		confettiDiv.appendChild(piece);
-	}
-	document.body.appendChild(confettiDiv);
-	setTimeout(() => { confettiDiv.remove(); }, 6000);
-};
 
 // チームロゴ紙吹雪演出
 const showLogoConfetti = () => {
@@ -127,7 +107,7 @@ const showLogoConfetti = () => {
 	}
 
 	document.body.appendChild(confettiDiv);
-	setTimeout(() => confettiDiv.remove(), 12000); // ✅ 12秒後に削除（長め）
+	setTimeout(() => confettiDiv.remove(), 6000); // ✅ 6秒後に削除
 };
 
 declare global {
@@ -469,7 +449,7 @@ export default function StampRallyPage() {
 			
 			// 特別スタンプの演出（押した順序のスタンプ番号で判定）
 			if (specialStampNumbers.includes(nextStampNumber)) {
-				showConfetti();
+				showLogoConfetti();
 			}
 
 			// Firestoreへ追記
@@ -1042,32 +1022,6 @@ export default function StampRallyPage() {
 					100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
 				}
 				
-				/* 紙吹雪エフェクト */
-				.confetti {
-					position: fixed;
-					top: 0;
-					left: 0;
-					width: 100%;
-					height: 100%;
-					pointer-events: none;
-					z-index: 1000;
-				}
-				.confetti-piece {
-					position: absolute;
-					width: 8px;
-					height: 8px;
-					animation: confetti-fall 2s linear forwards;
-				}
-				@keyframes confetti-fall {
-					0% {
-						transform: translateY(-100vh) rotate(0deg);
-						opacity: 1;
-					}
-					100% {
-						transform: translateY(100vh) rotate(360deg);
-						opacity: 0;
-					}
-				}
 				
 				/* === ロゴ紙吹雪 === */
 				.logo-confetti-piece {
