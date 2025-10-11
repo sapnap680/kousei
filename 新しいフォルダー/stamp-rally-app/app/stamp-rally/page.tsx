@@ -25,7 +25,6 @@ const venues = [
 	{ name: "学連事務所", lat: 35.6555607, lon: 139.6994733 },
 ];
 const maxDistance = 500;
-
 const specialStampNumbers = [3, 7, 12, 22];
 const adminPassword = "3557";
 
@@ -673,54 +672,6 @@ export default function StampRallyPage() {
 
 			{/* 獲得履歴の上に進捗まとめと最も行った会場を配置 */}
 			<div style={{ maxWidth: 600, margin: "0 auto", padding: "0 12px" }}>
-				{/* 日程表表示エリア */}
-				{scheduleOpen && (
-					<div className="schedule-section">
-						<h3 style={{ color: "#a97b2c", marginBottom: "12px", fontSize: "1.1em" }}>📅 試合日程</h3>
-						<div className="schedule-grid">
-							<div className="schedule-item">
-								<span className="schedule-date">8/27-30</span>
-								<span className="schedule-venue">大田区総合体育館</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">8/31-9/3</span>
-								<span className="schedule-venue">筑波大学</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">9/6-7</span>
-								<span className="schedule-venue">日本体育大学</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">9/10-14</span>
-								<span className="schedule-venue">明治大学・駒沢オリンピック</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">9/27-28</span>
-								<span className="schedule-venue">白鷗大学</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">10/4-5</span>
-								<span className="schedule-venue">国立代々木競技場</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">10/11-13</span>
-								<span className="schedule-venue">専修大学・立川立飛</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">10/18-19</span>
-								<span className="schedule-venue">東海大学・大東文化</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">10/25-26</span>
-								<span className="schedule-venue">青山学院大学</span>
-							</div>
-							<div className="schedule-item">
-								<span className="schedule-date">11/1-2</span>
-								<span className="schedule-venue">決勝戦</span>
-							</div>
-						</div>
-					</div>
-				)}
 				
 				{mostVisitedVenue && (
 					<div className="most-visited">
